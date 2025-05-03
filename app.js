@@ -30,12 +30,41 @@ app.get('/test', (req, res) => {
     res.send('Hello World Test route!')
 })
 
-app.post('/bookRide/:id', (req, res) => {
+app.get('/status/:pid', async (req, res) => {
+    const key = `passengerId:${req.params.pid}`;
+
+    const existingData = await client.get(key);
+
+    if (existingData === null) {
+        res.status(404).json({
+            msg: "Ride not found!"
+        })
+        return;
+    }
+
+    const ride = JSON.parse(existingData);
+
+    res.status(200).json({
+        ride
+    })
+})
+
+app.post('/bookRide/:id', async (req, res) => {
     const { src, dest } = req.body;
     console.log('New ride request registered. src:', src);
     console.log('dest:', dest);
 
-    const msg = JSON.stringify({ src, dest });
+    const passengerId = req.params.id;
+    const rideData = {
+        src,
+        dest,
+        status: "PENDING"
+    };
+
+    // Save to Redis with key like "passengerId:passengerId"
+    await client.set(`passengerId:${passengerId}`, JSON.stringify(rideData));
+
+    const msg = JSON.stringify({ src, dest, passengerId });
     channel.sendToQueue(QUEUE, Buffer.from(msg), { persistent: true });
 
     res.status(200).json({
@@ -51,7 +80,7 @@ app.post('/acceptRideByDriver/:did/:rideId', async (req, res) => {
     let resStatus = 200;
     //check if driver has the request
 
-    //accept request
+    //accept request - set lock
     const result = await client.set(`ride:${req.params.rideId}:accepted_by`, req.params.did, {
         NX: true,
         EX: 60 // 1 min
@@ -77,13 +106,6 @@ app.put('/updateDriverLocation/:did', async (req, res) => {
     let resStatus = 200;
     let resMessage = "Successfully updated driver location";
     try {
-        // await client.geoAdd("active_drivers", [{
-        //     longitude: lng,
-        //     latitude: lat,
-        //     member: `driver:${req.params.did}`
-        // }]);
-        // const now = Date.now(); // milliseconds
-
         const now = Date.now(); // milliseconds
         await Promise.all([
             client.geoAdd("active_drivers", [{

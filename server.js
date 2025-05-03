@@ -5,10 +5,16 @@ import { createClient } from "redis";
 import { redisCleanUp } from "./cleanUp.js";
 
 let client;
+let pubSubClient;
 const PORT = 7777;
 const httpServer = createServer(app);
 let driverSockets = new Map();
 
+client = createClient();
+await client.connect();
+client.on('error', (err) => {
+    console.error('❌ Redis client error:', err);
+});
 
 // Start HTTP server first
 httpServer.listen(PORT, async () => {
@@ -28,15 +34,15 @@ httpServer.on('error', (err) => {
 });
 
 try {
-    client = createClient();
-    await client.connect();
-    client.on('error', (err) => {
-        console.error('❌ Redis client error:', err.message);
+    pubSubClient = createClient();
+    await pubSubClient.connect();
+    pubSubClient.on('error', (err) => {
+        console.error('❌ Redis pubSubClient error:', err.message);
     });
 
-    client.subscribe('ride-requests', async (message) => {
+    pubSubClient.subscribe('ride-requests', async (message) => {
         try {
-            const { rideId, driverId, src, dest, distance } = JSON.parse(message);
+            const { rideId, driverId, passengerId, src, dest, distance } = JSON.parse(message);
 
             const socket = driverSockets.get(driverId);
             // console.log("get result: ", socket);
@@ -50,6 +56,15 @@ try {
                     distance,
                 }));
                 console.log(`📨 Sent ride request to driver ${driverId}`);
+
+                const rideData = {
+                    src,
+                    dest,
+                    driverId,
+                    status: "ASSIGNED"
+                };
+
+                await client.set(`passengerId:${passengerId}`, JSON.stringify(rideData));
             } else {
                 console.log(`⚠️ Driver ${driverId} not connected via WebSocket.`);
             }
