@@ -30,7 +30,7 @@ app.get('/test', (req, res) => {
     res.send('Hello World Test route!')
 })
 
-app.post('/bookRide', (req, res) => {
+app.post('/bookRide/:id', (req, res) => {
     const { src, dest } = req.body;
     console.log('New ride request registered. src:', src);
     console.log('dest:', dest);
@@ -77,11 +77,25 @@ app.put('/updateDriverLocation/:did', async (req, res) => {
     let resStatus = 200;
     let resMessage = "Successfully updated driver location";
     try {
-        await client.geoAdd("active_drivers", [{
-            longitude: lng,
-            latitude: lat,
-            member: `driver:${req.params.did}`
-        }]);
+        // await client.geoAdd("active_drivers", [{
+        //     longitude: lng,
+        //     latitude: lat,
+        //     member: `driver:${req.params.did}`
+        // }]);
+        // const now = Date.now(); // milliseconds
+
+        const now = Date.now(); // milliseconds
+        await Promise.all([
+            client.geoAdd("active_drivers", [{
+                longitude: lng,
+                latitude: lat,
+                member: `driver:${req.params.did}`
+            }]),
+            client.zAdd("driver_last_updated", {
+                score: now,
+                value: `driver:${req.params.did}`
+            })
+        ]);
     } catch (e) {
         resStatus = 500;
         resMessage = "Something went wrong while updating driver location"
@@ -94,4 +108,4 @@ app.put('/updateDriverLocation/:did', async (req, res) => {
     })
 })
 
-export { app }
+export { app, client }

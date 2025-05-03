@@ -2,11 +2,13 @@ import { createServer } from 'http';
 import { app } from './app.js';
 import WebSocket, { WebSocketServer } from "ws";
 import { createClient } from "redis";
+import { redisCleanUp } from "./cleanUp.js";
 
 let client;
 const PORT = 7777;
 const httpServer = createServer(app);
 let driverSockets = new Map();
+
 
 // Start HTTP server first
 httpServer.listen(PORT, async () => {
@@ -58,7 +60,7 @@ try {
 
     console.log("✅ Successfully connected to redis");
 } catch (error) {
-    console.log("❌ Error connecting to redis")
+    console.log("❌ Error connecting to redis", error)
 }
 
 
@@ -106,4 +108,5 @@ async function setupWebSocketServer(httpServer) {
     });
 }
 
+redisCleanUp();
 // export { driverSockets };
