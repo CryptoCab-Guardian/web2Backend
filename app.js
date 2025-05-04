@@ -71,6 +71,7 @@ app.post('/bookRide/:id', async (req, res) => {
     channel.sendToQueue(QUEUE, Buffer.from(msg), { persistent: true });
 
     res.status(200).json({
+        rideData,
         msg: "Successfully made ride request"
     })
 })
@@ -109,7 +110,7 @@ app.post('/acceptRideByDriver/:did/:rideId', async (req, res) => {
         // Proceed to assign ride to this driver
     }
 
-    res.status(resStatus).json(resObj);
+    res.status(resStatus).json(rideData);
 })
 
 app.put('/updateDriverLocation/:did', async (req, res) => {
