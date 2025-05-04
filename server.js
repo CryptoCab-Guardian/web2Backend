@@ -56,15 +56,6 @@ try {
                     distance,
                 }));
                 console.log(`📨 Sent ride request to driver ${driverId}`);
-
-                const rideData = {
-                    src,
-                    dest,
-                    driverId,
-                    status: "ASSIGNED"
-                };
-
-                await client.set(`passengerId:${passengerId}`, JSON.stringify(rideData));
             } else {
                 console.log(`⚠️ Driver ${driverId} not connected via WebSocket.`);
             }

@@ -2,6 +2,7 @@ import express from 'express';
 import { connectRabbitMQ } from "./rabbitmq.js";
 import { createClient } from "redis";
 import cors from 'cors';
+import { v4 as uuidv4 } from 'uuid';
 
 let client;
 try {
@@ -30,8 +31,8 @@ app.get('/test', (req, res) => {
     res.send('Hello World Test route!')
 })
 
-app.get('/status/:pid', async (req, res) => {
-    const key = `passengerId:${req.params.pid}`;
+app.get('/status/:rideId', async (req, res) => {
+    const key = `rideId:${req.params.rideId}`;
 
     const existingData = await client.get(key);
 
@@ -54,17 +55,19 @@ app.post('/bookRide/:id', async (req, res) => {
     console.log('New ride request registered. src:', src);
     console.log('dest:', dest);
 
+    const rideId = uuidv4();
     const passengerId = req.params.id;
     const rideData = {
-        src,
-        dest,
+        rideId,
         status: "PENDING"
+        // src,
+        // dest,
     };
 
-    // Save to Redis with key like "passengerId:passengerId"
-    await client.set(`passengerId:${passengerId}`, JSON.stringify(rideData));
+    // Save to Redis with key like "rideId:rideId"
+    await client.set(`rideId:${rideId}`, JSON.stringify(rideData));
 
-    const msg = JSON.stringify({ src, dest, passengerId });
+    const msg = JSON.stringify({ src, dest, passengerId, rideId });
     channel.sendToQueue(QUEUE, Buffer.from(msg), { persistent: true });
 
     res.status(200).json({
@@ -73,6 +76,8 @@ app.post('/bookRide/:id', async (req, res) => {
 })
 
 app.post('/acceptRideByDriver/:did/:rideId', async (req, res) => {
+    const driverId = req.params.did;
+    const rideId = req.params.rideId;
     let resObj = {
         status: "success",
         msg: "Successfully accepted ride"
@@ -81,10 +86,17 @@ app.post('/acceptRideByDriver/:did/:rideId', async (req, res) => {
     //check if driver has the request
 
     //accept request - set lock
-    const result = await client.set(`ride:${req.params.rideId}:accepted_by`, req.params.did, {
+    const result = await client.set(`ride:${rideId}:accepted_by`, driverId, {
         NX: true,
         EX: 60 // 1 min
     });
+
+    const rideData = {
+        driverId,
+        status: "ASSIGNED"
+    };
+
+    await client.set(`rideId:${rideId}`, JSON.stringify(rideData));
 
     if (result === null) {
         console.log("❌ Ride already assigned to another driver.");

@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { connectRabbitMQ } from "./rabbitmq.js";
 import { createClient } from "redis";
 
@@ -32,7 +31,7 @@ const channel = await connectRabbitMQ(QUEUE);
 channel.consume(QUEUE, async (msg) => {
     if (msg !== null) {
         try {
-            const { src, dest, passengerId } = JSON.parse(msg.content.toString());
+            const { rideId, src, dest, passengerId } = JSON.parse(msg.content.toString());
             console.log(`ride request src:${JSON.stringify(src)} dest:${JSON.stringify(dest)} received`);
 
             const results = await client.geoSearchWith('active_drivers',
@@ -48,7 +47,6 @@ channel.consume(QUEUE, async (msg) => {
                 console.log(`requeued ride request with src:${JSON.stringify(src)} dest:${JSON.stringify(dest)}`)
             } else {
                 console.log("🔎 Nearby drivers found:");
-                const rideId = uuidv4();
 
                 results.forEach(async ({ member: driverId, distance }) => {
                     console.log(`- ${driverId} (${Number(distance).toFixed(2)} km away)`);
