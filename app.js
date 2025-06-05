@@ -51,6 +51,7 @@ app.get('/status/:rideId', async (req, res) => {
 })
 
 app.post('/bookRide/:id', async (req, res) => {
+    const startTime = Date.now();
     const { src, dest } = req.body;
     console.log('New ride request registered. src:', src);
     console.log('dest:', dest);
@@ -58,16 +59,16 @@ app.post('/bookRide/:id', async (req, res) => {
     const rideId = uuidv4();
     const passengerId = req.params.id;
     const rideData = {
-        rideId,
-        status: "PENDING"
+        status: "PENDING",
+        // rideId,
         // src,
         // dest,
     };
 
-    // Save to Redis with key like "rideId:rideId"
+    // Save to Redis with key like "rideId:rideId" [polled for status check]
     await client.set(`rideId:${rideId}`, JSON.stringify(rideData));
 
-    const msg = JSON.stringify({ src, dest, passengerId, rideId });
+    const msg = JSON.stringify({ src, dest, passengerId, rideId, startTime });
     channel.sendToQueue(QUEUE, Buffer.from(msg), { persistent: true });
 
     res.status(200).json({

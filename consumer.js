@@ -31,8 +31,10 @@ const channel = await connectRabbitMQ(QUEUE);
 channel.consume(QUEUE, async (msg) => {
     if (msg !== null) {
         try {
-            const { rideId, src, dest, passengerId } = JSON.parse(msg.content.toString());
+            const { rideId, src, dest, passengerId, startTime } = JSON.parse(msg.content.toString());
             console.log(`ride request src:${JSON.stringify(src)} dest:${JSON.stringify(dest)} received`);
+            console.log('📊 startTime value from consumer:', startTime, typeof startTime);
+
 
             const results = await client.geoSearchWith('active_drivers',
                 { latitude: Number(src.lat), longitude: Number(src.lng) },
@@ -58,6 +60,7 @@ channel.consume(QUEUE, async (msg) => {
                         src,
                         dest,
                         distance: Number(distance).toFixed(2),
+                        startTime,
                     }));
 
                     console.log(`📨 Published ride request ${rideId} for driver ${driverId}`);

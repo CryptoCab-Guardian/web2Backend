@@ -42,7 +42,10 @@ try {
 
     pubSubClient.subscribe('ride-requests', async (message) => {
         try {
-            const { rideId, driverId, passengerId, src, dest, distance } = JSON.parse(message);
+            const { rideId, driverId, passengerId, src, dest, distance, startTime } = JSON.parse(message);
+            console.log('📊 startTime value:', startTime, typeof startTime);
+            const endTime = Date.now();
+            const latency = endTime - startTime;
 
             const socket = driverSockets.get(driverId);
             // console.log("get result: ", socket);
@@ -54,6 +57,7 @@ try {
                     src,
                     dest,
                     distance,
+                    latency
                 }));
                 console.log(`📨 Sent ride request to driver ${driverId}`);
             } else {
