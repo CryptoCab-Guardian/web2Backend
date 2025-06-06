@@ -56,6 +56,7 @@ channel.consume(QUEUE, async (msg) => {
                         src,
                         dest,
                         price,
+                        vehicleType,
                         passengerId,
                         rideId,
                         driverId,

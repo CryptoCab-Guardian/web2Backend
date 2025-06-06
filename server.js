@@ -59,7 +59,7 @@ try {
                     rideId,
                     driverId,
                     distance,
-                    latency,
+                    latency
                 }));
                 console.log(`📨 Sent ride request to driver ${driverId}`);
             }

@@ -78,6 +78,9 @@ app.post('/bookRide/:id', async (req, res) => {
 app.post('/acceptRideByDriver/:did/:rideId', async (req, res) => {
     const driverId = req.params.did;
     const rideId = req.params.rideId;
+
+    const { src, dest, vehicleType, price } = req.body;
+
     let resObj = {
         status: "success",
         msg: "Successfully accepted ride"
@@ -92,9 +95,12 @@ app.post('/acceptRideByDriver/:did/:rideId', async (req, res) => {
     });
 
     const rideData = {
+        status: "ASSIGNED",
+        src,
+        dest,
+        price,
         driverId,
-        rideId,
-        status: "ASSIGNED"
+        rideId
     };
 
     await client.set(`rideId:${rideId}`, JSON.stringify(rideData));
