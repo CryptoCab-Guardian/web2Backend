@@ -9,7 +9,8 @@ try {
     client = createClient();
     await client.connect();
     console.log("✅ Successfully connected to redis");
-} catch (error) {
+}
+catch (error) {
     console.log("❌ Error connecting to redis")
 }
 
@@ -27,13 +28,10 @@ const QUEUE = "ride-request-queue";
 
 const channel = await connectRabbitMQ(QUEUE);
 
-app.get('/test', (req, res) => {
-    res.send('Hello World Test route!')
-})
-
 app.get('/status/:rideId', async (req, res) => {
     const key = `rideId:${req.params.rideId}`;
 
+    // {status, rideId, driverId}
     const existingData = await client.get(key);
 
     if (existingData === null) {
@@ -43,35 +41,36 @@ app.get('/status/:rideId', async (req, res) => {
         return;
     }
 
-    const ride = JSON.parse(existingData);
+    const rideData = JSON.parse(existingData);
+    const response = rideData;
 
-    res.status(200).json({
-        ride
-    })
+    if (rideData.driverId) {
+        const position = await client.geoPos('active_drivers', `driver:${rideData.driverId}`);
+        Object.assign(response, { driverPosition: position ? position[0] : null });
+    }
+
+    res.status(200).json(response)
 })
 
 app.post('/bookRide/:id', async (req, res) => {
     const startTime = Date.now();
-    const { src, dest } = req.body;
-    console.log('New ride request registered. src:', src);
-    console.log('dest:', dest);
+    const { src, dest, price, vehicleType } = req.body;
 
     const rideId = uuidv4();
-    const passengerId = req.params.id;
+    const passengerId = req.params.id; // passenger's wallet public address
     const rideData = {
         status: "PENDING",
-        // rideId,
-        // src,
-        // dest,
+        rideId
     };
 
     // Save to Redis with key like "rideId:rideId" [polled for status check]
     await client.set(`rideId:${rideId}`, JSON.stringify(rideData));
 
-    const msg = JSON.stringify({ src, dest, passengerId, rideId, startTime });
+    const msg = JSON.stringify({ src, dest, vehicleType, price, passengerId, rideId, startTime });
     channel.sendToQueue(QUEUE, Buffer.from(msg), { persistent: true });
 
     res.status(200).json({
+        rideId,
         msg: "Successfully made ride request"
     })
 })
@@ -94,6 +93,7 @@ app.post('/acceptRideByDriver/:did/:rideId', async (req, res) => {
 
     const rideData = {
         driverId,
+        rideId,
         status: "ASSIGNED"
     };
 
@@ -105,9 +105,9 @@ app.post('/acceptRideByDriver/:did/:rideId', async (req, res) => {
         resObj.status = "failed"
         resObj.msg = "Ride already accepted by another driver!"
         resStatus = 400;
-    } else {
+    }
+    else {
         console.log(`✅ Driver ${req.params.did} successfully accepted the ride!`);
-        // Proceed to assign ride to this driver
     }
 
     res.status(resStatus).json(resObj);
@@ -119,7 +119,7 @@ app.put('/updateDriverLocation/:did', async (req, res) => {
     let resStatus = 200;
     let resMessage = "Successfully updated driver location";
     try {
-        const now = Date.now(); // milliseconds
+        const now = Date.now();
         await Promise.all([
             client.geoAdd("active_drivers", [{
                 longitude: lng,
@@ -131,10 +131,10 @@ app.put('/updateDriverLocation/:did', async (req, res) => {
                 value: `driver:${req.params.did}`
             })
         ]);
-    } catch (e) {
+    }
+    catch (e) {
         resStatus = 500;
         resMessage = "Something went wrong while updating driver location"
-        console.log(e);
     }
 
 

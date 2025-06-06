@@ -42,28 +42,32 @@ try {
 
     pubSubClient.subscribe('ride-requests', async (message) => {
         try {
-            const { rideId, driverId, passengerId, src, dest, distance, startTime } = JSON.parse(message);
-            console.log('📊 startTime value:', startTime, typeof startTime);
+            const { src, dest, price, passengerId, rideId, driverId, distance, startTime } = JSON.parse(message);
+
             const endTime = Date.now();
             const latency = endTime - startTime;
 
             const socket = driverSockets.get(driverId);
-            // console.log("get result: ", socket);
 
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify({
                     type: 'NEW_RIDE_REQUEST',
-                    rideId,
                     src,
                     dest,
+                    price,
+                    passengerId,
+                    rideId,
+                    driverId,
                     distance,
-                    latency
+                    latency,
                 }));
                 console.log(`📨 Sent ride request to driver ${driverId}`);
-            } else {
+            }
+            else {
                 console.log(`⚠️ Driver ${driverId} not connected via WebSocket.`);
             }
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error handling ride request message:', error.message);
         }
     });

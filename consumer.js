@@ -19,7 +19,8 @@ try {
 
 
     console.log("✅ Successfully connected to redis");
-} catch (error) {
+}
+catch (error) {
     console.log("❌ Error connecting to redis", error)
 }
 
@@ -31,10 +32,7 @@ const channel = await connectRabbitMQ(QUEUE);
 channel.consume(QUEUE, async (msg) => {
     if (msg !== null) {
         try {
-            const { rideId, src, dest, passengerId, startTime } = JSON.parse(msg.content.toString());
-            console.log(`ride request src:${JSON.stringify(src)} dest:${JSON.stringify(dest)} received`);
-            console.log('📊 startTime value from consumer:', startTime, typeof startTime);
-
+            const { src, dest, vehicleType, price, passengerId, rideId, startTime } = JSON.parse(msg.content.toString());
 
             const results = await client.geoSearchWith('active_drivers',
                 { latitude: Number(src.lat), longitude: Number(src.lng) },
@@ -47,25 +45,26 @@ channel.consume(QUEUE, async (msg) => {
                 console.log("❌ No drivers available nearby.");
                 channel.nack(msg); // requeue = true by default
                 console.log(`requeued ride request with src:${JSON.stringify(src)} dest:${JSON.stringify(dest)}`)
-            } else {
+            }
+            else {
                 console.log("🔎 Nearby drivers found:");
 
                 results.forEach(async ({ member: driverId, distance }) => {
                     console.log(`- ${driverId} (${Number(distance).toFixed(2)} km away)`);
 
                     await pubSubClient.publish('ride-requests', JSON.stringify({
-                        rideId,
-                        driverId,
-                        passengerId,
                         src,
                         dest,
+                        price,
+                        passengerId,
+                        rideId,
+                        driverId,
                         distance: Number(distance).toFixed(2),
                         startTime,
                     }));
 
                     console.log(`📨 Published ride request ${rideId} for driver ${driverId}`);
-                }
-                )
+                })
                 channel.ack(msg);
             }
         } catch (error) {
@@ -74,7 +73,8 @@ channel.consume(QUEUE, async (msg) => {
             if (error.message.includes('invalid longitude,latitude pair')) {
                 console.log('⚠️ Bad coordinates received, discarding message.');
                 channel.ack(msg);
-            } else {
+            }
+            else {
                 console.log('⚠️ Unexpected error, requeueing message...');
                 channel.nack(msg, false, true); // requeue = true
             }
