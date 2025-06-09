@@ -153,9 +153,113 @@ app.put("/updateDriverLocation/:did", async (req, res) => {
     }
 
 
-  res.status(resStatus).json({
-    msg: resMessage,
-  });
+    res.status(resStatus).json({
+        msg: resMessage
+    })
+})
+
+app.post('/completeRide/:did/:rideId', async (req, res) => {
+    const driverId = req.params.did;
+    const rideId = req.params.rideId;
+
+    let resStatus = 200;
+    let resMessage = "Ride completed successfully";
+
+    try {
+        // Get ride data
+        const rideData = await client.get(`rideId:${rideId}`);
+
+        if (!rideData) {
+            return res.status(404).json({
+                status: "failed",
+                msg: "Ride not found"
+            });
+        }
+
+        const rideInfo = JSON.parse(rideData);
+
+        // Verify this driver is assigned to this ride
+        if (rideInfo.driverId !== driverId) {
+            return res.status(403).json({
+                status: "failed",
+                msg: "You are not authorized to complete this ride"
+            });
+        }
+
+        // Update ride status
+        rideInfo.status = "COMPLETED";
+        rideInfo.completedAt = Date.now();
+
+        // Save updated ride data
+        await client.set(`rideId:${rideId}`, JSON.stringify(rideInfo));
+
+        // Add to completed rides collection
+        await client.sAdd("completed_rides", rideId);
+
+        res.status(resStatus).json({
+            status: "success",
+            msg: resMessage,
+            rideId,
+            driverId
+        });
+    } catch (error) {
+        console.error("Error completing ride:", error);
+        res.status(500).json({
+            status: "failed",
+            msg: "Failed to complete ride due to server error"
+        });
+    }
+});
+
+app.post('/updateRidePayment/:rideId', async (req, res) => {
+    const rideId = req.params.rideId;
+    const { txHash, paymentStatus, chainId } = req.body;
+
+    let resStatus = 200;
+    let resMessage = "Payment status updated successfully";
+
+    try {
+        // Get ride data
+        const rideData = await client.get(`rideId:${rideId}`);
+
+        if (!rideData) {
+            return res.status(404).json({
+                status: "failed",
+                msg: "Ride not found"
+            });
+        }
+
+        const rideInfo = JSON.parse(rideData);
+
+        // Update payment information
+        rideInfo.paymentStatus = paymentStatus;
+        rideInfo.paymentTxHash = txHash;
+        rideInfo.paymentChainId = chainId; // Store the blockchain network ID
+        rideInfo.paymentTimestamp = Date.now();
+
+        // Save updated ride data
+        await client.set(`rideId:${rideId}`, JSON.stringify(rideInfo));
+
+        // Add to paid rides collection if needed
+        if (paymentStatus === "PAID") {
+            await client.sAdd("paid_rides", rideId);
+        }
+
+        res.status(resStatus).json({
+            status: "success",
+            msg: resMessage,
+            rideId,
+            paymentStatus,
+            txHash,
+            chainId
+        });
+    } catch (error) {
+        console.error("Error updating payment status:", error);
+        res.status(500).json({
+            status: "failed",
+            msg: "Failed to update payment status due to server error"
+        });
+    }
 });
 
 export { app, client };
